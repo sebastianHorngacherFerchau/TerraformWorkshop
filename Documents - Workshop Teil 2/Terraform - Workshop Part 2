@@ -1,0 +1,119 @@
+# Inhaltsverzeichnis
+
+- [Inhaltsverzeichnis](#inhaltsverzeichnis)
+- [Strukturierung eines "Terraform Projekts"](#strukturierung-eines-terraform-projekts)
+- [Noch ein bisschen Hintergrundwissen](#noch-ein-bisschen-hintergrundwissen)
+  - [Neue Provider hinzufügen](#neue-provider-hinzufügen)
+  - [Modules](#modules)
+  - [sets, maps, lists, count and dynamic](#sets-maps-lists-count-and-dynamic)
+  - [depends on](#depends-on)
+  - [null-resouce und terraform-data](#null-resouce-und-terraform-data)
+  - [scripts ausführen - nach Resourcen Erstellung u. nach Destroy](#scripts-ausführen---nach-resourcen-erstellung-u-nach-destroy)
+  - [Best Practices - Mehrere Umgebungen](#best-practices---mehrere-umgebungen)
+- [GCP - Endlich spezifisches für google cloud!](#gcp---endlich-spezifisches-für-google-cloud)
+  - [Wo kann man state files ablegen](#wo-kann-man-state-files-ablegen)
+  - [Pipelines](#pipelines)
+  - [Versionierung](#versionierung)
+  - [Creating projects](#creating-projects)
+  - [IAM Rechteverwaltung](#iam-rechteverwaltung)
+  - [User erstellen bzw. Service Accounts](#user-erstellen-bzw-service-accounts)
+  - [Services aktivieren](#services-aktivieren)
+  - [VMs Erstellen](#vms-erstellen)
+- [Abschließende Gedanken](#abschließende-gedanken)
+  - [Was soll (nicht) über Terraform gemacht werden](#was-soll-nicht-über-terraform-gemacht-werden)
+  - [Was wurde nicht so abgedeckt, was ich in den Terraform files gesehen habe](#was-wurde-nicht-so-abgedeckt-was-ich-in-den-terraform-files-gesehen-habe)
+    - [Bzgl. Baur](#bzgl-baur)
+    - [Bzgl. BI Projekte](#bzgl-bi-projekte)
+  - [Muss ich immer commands wie terraform apply selber ausführe?](#muss-ich-immer-commands-wie-terraform-apply-selber-ausführe)
+
+# Strukturierung eines "Terraform Projekts"
+
+# Noch ein bisschen Hintergrundwissen
+
+## Neue Provider hinzufügen
+
+Nachdem neue Provider hinzugefügt wurden, sollten man immer mal wieder `terraform init` ausführen. Dieser Befehl ladet dann alle benötigten files runter, für den neuen Provider!
+
+## Modules
+
+## sets, maps, lists, count and dynamic
+
+Gutes Beispiel: https://stackoverflow.com/questions/58594506/how-to-for-each-through-a-listobjects-in-terraform-0-12
+
+## depends on
+
+## null-resouce und terraform-data
+
+https://developer.hashicorp.com/terraform/language/resources/terraform-data
+
+## scripts ausführen - nach Resourcen Erstellung u. nach Destroy
+
+## Best Practices - Mehrere Umgebungen
+
+# GCP - Endlich spezifisches für google cloud!
+
+https://registry.terraform.io/providers/hashicorp/google/latest/docs
+
+## Wo kann man state files ablegen
+
+https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#configuring_terraform_to_store_state_in_a_cloud_storage_bucket
+
+## Pipelines
+
+## Versionierung
+
+## Creating projects
+
+## IAM Rechteverwaltung
+
+## User erstellen bzw. Service Accounts
+
+## Services aktivieren
+
+Nicht alle services stehen einfach so zu Verfügung. Manche muss man entweder manuell oder automatisiert aktivieren (siehe google-services resource) um mit Terraform damit zu interagieren.
+https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/guides/google_project_service
+
+```
+resource "google_project_service" "iam" {
+  project = var.project_id
+  service = "iam.googleapis.com"
+  timeouts {
+    create = "20m"
+    update = "20m"
+  }
+}
+```
+
+Für diesen Workshop zum Beispiel wurden die Services Identity and Access Management (IAM) API u. Cloud Resource Manager API benötigt, die entweder manuell oder automatisiert aktiviert werden können.
+
+https://console.cloud.google.com/apis/api/iam.googleapis.com/metrics?project=terraform-learning-460507&inv=1&invt=AbzEYA
+
+https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com/metrics?project=terraform-learning-460507&inv=1&invt=AbzEXw
+
+Alle gcp services, die existieren, können über die cli abgefragt werden (Achtung: es ist eine sehr lange Liste und kann ein wenig dauern, bis alles da ist und die anfänglichen Ergebnisse haben dann schon garnicht mehr Platz im Terminal Cache)
+
+```shell
+gcloud services list --available --project terraform-learning-460507
+```
+
+## VMs Erstellen
+
+# Abschließende Gedanken
+
+## Was soll (nicht) über Terraform gemacht werden
+
+## Was wurde nicht so abgedeckt, was ich in den Terraform files gesehen habe
+
+### Bzgl. Baur
+
+- Von Baur wurde die Infrastruktur so gebaut, sodass man in die Terraform files ansich so gut wie nie rein muss. Dort wird alles über yaml files abgebildet. Beispiele hierzu können hier gefunden [Yaml Files in Terraform](<Terraform - Yaml Files.md>)
+- Die Ordnerstruktur ist an den Aufbau von GCP angelehnt, um die Übersichtlichkeit zu verbssern.
+
+### Bzgl. BI Projekte
+
+TODO: Bisher habe ich keine Terraform files bekommen, daher konnte ich mich nicht damit weiter auseinander setzen.
+
+## Muss ich immer commands wie terraform apply selber ausführe?
+
+Nein ... normalerweise um Fehler zu vermeiden, sollten solche Befehle nur über pipelines ausgeführt werden.
+Zum Beispiel könnte man manuell einen Service Account für die Erstellung der Infrastruktur erstellen und das key file des Accounts kann man in github actions dann als secrets hinterlegen.
