@@ -1,0 +1,31 @@
+# Strukturierung
+
+## Adding new providers
+
+After including new providers, you should execute `terraform init`. This download the files needed for the new provider!
+
+## Modules
+
+## Best Practices - Mehrere Umgebungen
+
+# Verwaltung Terraform
+
+# Verwaltung in GCP
+
+## Where to store state files
+
+# Pipelines
+
+# Versionierung
+
+# Creating projects
+
+# IAM Rechteverwaltung
+
+# User erstellen
+
+# VMs Erstellen
+
+# Abschließende Gedanken
+
+## Was soll (nicht) über Terraform gemacht werden
