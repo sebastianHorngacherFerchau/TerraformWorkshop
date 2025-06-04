@@ -5,115 +5,391 @@
 - [Noch ein bisschen Hintergrundwissen](#noch-ein-bisschen-hintergrundwissen)
   - [Neue Provider hinzufügen](#neue-provider-hinzufügen)
   - [Modules](#modules)
-  - [sets, maps, lists, count and dynamic](#sets-maps-lists-count-and-dynamic)
-  - [depends on](#depends-on)
-  - [null-resouce und terraform-data](#null-resouce-und-terraform-data)
-  - [scripts ausführen - nach Resourcen Erstellung u. nach Destroy](#scripts-ausführen---nach-resourcen-erstellung-u-nach-destroy)
-  - [Best Practices - Mehrere Umgebungen](#best-practices---mehrere-umgebungen)
-- [GCP - Endlich spezifisches für google cloud!](#gcp---endlich-spezifisches-für-google-cloud)
-  - [Wo kann man state files ablegen](#wo-kann-man-state-files-ablegen)
-  - [Pipelines](#pipelines)
+  - [Sets, Maps, Lists, `count` und `for_each`](#sets-maps-lists-count-und-for_each)
+  - [depends_on](#depends_on)
+  - [`null_resource` und `terraform_data`](#null_resource-und-terraform_data)
+  - [Skripte ausführen – nach Ressourcen-Erstellung und nach Destroy](#skripte-ausführen--nach-ressourcen-erstellung-und-nach-destroy)
+  - [Best Practices – Mehrere Umgebungen](#best-practices--mehrere-umgebungen)
+- [Hands-On Beispiele](#hands-on-beispiele)
+  - [Allgemeines Terraform-Beispiel (ohne Cloud)](#allgemeines-terraform-beispiel-ohne-cloud)
+  - [GCP-Hand-On: Eigene Ressourcen erstellen](#gcp-hand-on-eigene-ressourcen-erstellen)
+- [GCP – Endlich spezifisches für Google Cloud!](#gcp--endlich-spezifisches-für-google-cloud)
+  - [Wo kann man State-Files ablegen](#wo-kann-man-state-files-ablegen)
+  - [Pipelines (CI/CD)](#pipelines-cicd)
   - [Versionierung](#versionierung)
-  - [Creating projects](#creating-projects)
-  - [IAM Rechteverwaltung](#iam-rechteverwaltung)
-  - [User erstellen bzw. Service Accounts](#user-erstellen-bzw-service-accounts)
+  - [Projekte erstellen](#projekte-erstellen)
+  - [IAM-Rechteverwaltung](#iam-rechteverwaltung)
+  - [User/Service Accounts erstellen](#userservice-accounts-erstellen)
   - [Services aktivieren](#services-aktivieren)
   - [VMs Erstellen](#vms-erstellen)
 - [Abschließende Gedanken](#abschließende-gedanken)
   - [Was soll (nicht) über Terraform gemacht werden](#was-soll-nicht-über-terraform-gemacht-werden)
-  - [Was wurde nicht so abgedeckt, was ich in den Terraform files gesehen habe](#was-wurde-nicht-so-abgedeckt-was-ich-in-den-terraform-files-gesehen-habe)
-    - [Bzgl. Baur](#bzgl-baur)
-    - [Bzgl. BI Projekte](#bzgl-bi-projekte)
-  - [Muss ich immer commands wie terraform apply selber ausführe?](#muss-ich-immer-commands-wie-terraform-apply-selber-ausführe)
+  - [Was wurde nicht so abgedeckt, was ich in den Terraform-Files gesehen habe](#was-wurde-nicht-so-abgedeckt-was-ich-in-den-terraform-files-gesehen-habe)
+  - [Muss ich immer Befehle wie `terraform apply` selber ausführen?](#muss-ich-immer-befehle-wie-terraform-apply-selber-ausführen)
 
 # Strukturierung eines "Terraform Projekts"
+
+Ein Terraform-Projekt sollte klar strukturiert sein, um übersichtlich zu bleiben. Üblich ist zum Beispiel eine Aufteilung in mehrere Dateien im Projektstamm:
+
+- **`main.tf`**: Hier werden die Haupt-Ressourcen definiert (z.B. Compute-Instanzen, Netzwerke usw.)[spacelift.io](https://spacelift.io/blog/terraform-files#:~:text=1,specific%20default%20values%20of).
+- **`variables.tf`**: Enthält alle **Variablendeklarationen** (Eingabe-Parameter)[spacelift.io](https://spacelift.io/blog/terraform-files#:~:text=1,specific%20default%20values%20of).
+- **`provider.tf`**: Konfiguriert Anbieter (Provider) und ggf. das Backend (z.B. **Google Cloud Storage** als Remote-State)[spacelift.io](https://spacelift.io/blog/terraform-files#:~:text=2,specific%20default%20values%20of)[cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=By%20default%2C%20Terraform%20stores%20state,understanding%20of%20the%20current%20infrastructure).
+- **`outputs.tf`**: Definiert Ausgaben (Outputs), die nach `terraform apply` angezeigt werden sollen[spacelift.io](https://spacelift.io/blog/terraform-files#:~:text=3,specific%20default%20values%20of).
+- **`terraform.tfvars`** (oder mehrere): Legt werte für die Variablen fest (z.B. `env=dev`, Projekt-ID etc.)[spacelift.io](https://spacelift.io/blog/terraform-files#:~:text=4,specific%20default%20values%20of).
+
+In komplexeren Projekten empfiehlt sich ein **Modul-Verzeichnis** (z.B. `/modules`), in dem wiederverwendbare Teilkonfigurationen liegen (z.B. ein VPC-Modul, ein VM-Modul usw.)[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=Modules%20are%20containers%20for%20multiple,kept%20together%20in%20a%20directory)[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=In%20addition%20to%20modules%20from,modules%20that%20others%20have%20published). Die Ordnerstruktur könnte beispielsweise so aussehen:
+
+```css
+project-root/
+├── main.tf
+├── variables.tf
+├── provider.tf
+├── outputs.tf
+├── terraform.tfvars
+└── modules/
+    ├── network/
+    │   └── main.tf
+    └── compute/
+        └── main.tf
+```
+
+Diese Aufteilung hilft, den Code wartbar zu halten[spacelift.io](https://spacelift.io/blog/terraform-files#:~:text=1,specific%20default%20values%20of). Außerdem sollte man immer eine `.gitignore` anlegen, um sensible Dateien (z.B. `*.tfstate`) oder lokale Builds auszuschließen.
 
 # Noch ein bisschen Hintergrundwissen
 
 ## Neue Provider hinzufügen
 
-Nachdem neue Provider hinzugefügt wurden, sollten man immer mal wieder `terraform init` ausführen. Dieser Befehl ladet dann alle benötigten files runter, für den neuen Provider!
+Wenn Sie in Ihrem Terraform-Code einen **neuen Provider** (z.B. AWS, Azure, GCP, MySQL etc.) verwenden, müssen Sie Terraform entsprechend konfigurieren. Typischerweise fügen Sie in `provider.tf` oder direkt in `main.tf` einen Block wie
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+provider "aws" {
+  region = "us-west-2"
+}
+```
+
+hinzu. Danach muss man **`terraform init`** ausführen, damit Terraform den neuen Provider-Plugin herunterlädt. Dieser Befehl initialisiert das Arbeitsverzeichnis und lädt alle in der Konfiguration benötigten Provider-Plugins (und Module) herunter[developer.hashicorp.com](https://developer.hashicorp.com/terraform/tutorials/cli/init#:~:text=2.%20The%20,of%20all%20the%20configuration%27s%20providers). Führen Sie `terraform init` also erneut aus, nachdem Sie Provider- oder Modul-Konfigurationen geändert haben.
 
 ## Modules
 
-## sets, maps, lists, count and dynamic
+Ein **Modul** fasst mehrere Terraform-Ressourcen zusammen, die gemeinsam verwendet werden (z.B. ein komplettes Netzwerk-Setup oder eine Anwendungslandschaft)[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=Modules%20are%20containers%20for%20multiple,kept%20together%20in%20a%20directory). Jedes Verzeichnis mit `.tf`-Dateien ist ein Modul. Das „Wurzelmodul“ (Root Module) ist einfach das Verzeichnis, in dem Sie arbeiten (enthält Ihre `main.tf` usw.), und es kann **Kind-Module** per `module`-Block aufrufen.
 
-Gutes Beispiel: https://stackoverflow.com/questions/58594506/how-to-for-each-through-a-listobjects-in-terraform-0-12
+```hcl
+module "network" {
+  source = "./modules/network"
+  vpc_cidr = "10.0.0.0/16"
+}
+```
 
-## depends on
+Alternativ können Sie Module aus einem **Registry** oder Git-Repo nutzen. Terraform kann Module automatisch herunterladen, wenn Sie in `module { source = "..." }` z.B. auf das Terraform Registry verweisen[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=In%20addition%20to%20modules%20from,modules%20that%20others%20have%20published). Im Registry finden Sie viele vorgefertigte Module (z.B. `terraform-google-modules/network/google`). Grundsätzlich hilft die Verwendung von Modulen dabei, Code zu teilen und wiederzuverwenden[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=Modules%20are%20containers%20for%20multiple,kept%20together%20in%20a%20directory)[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=In%20addition%20to%20modules%20from,modules%20that%20others%20have%20published).
 
-## null-resouce und terraform-data
+## Sets, Maps, Lists, `count` und `for_each`
 
-https://developer.hashicorp.com/terraform/language/resources/terraform-data
+Terraform unterstützt komplexe Datentypen wie Listen (Arrays), Karten (Maps) und Mengen (Sets). Damit können Sie mehrere ähnliche Ressourcen dynamisch erstellen. Die zwei wichtigsten Metaarbeitgeber sind **`count`** und **`for_each`**[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/count#:~:text=By%20default%2C%20a%20resource%20block,and%20for_each)[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/for_each#:~:text=If%20a%20resource%20or%20module,of%20that%20map%20or%20set):
 
-## scripts ausführen - nach Resourcen Erstellung u. nach Destroy
-
-## Best Practices - Mehrere Umgebungen
-
-# GCP - Endlich spezifisches für google cloud!
-
-https://registry.terraform.io/providers/hashicorp/google/latest/docs
-
-## Wo kann man state files ablegen
-
-https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#configuring_terraform_to_store_state_in_a_cloud_storage_bucket
-
-## Pipelines
-
-## Versionierung
-
-## Creating projects
-
-## IAM Rechteverwaltung
-
-## User erstellen bzw. Service Accounts
-
-## Services aktivieren
-
-Nicht alle services stehen einfach so zu Verfügung. Manche muss man entweder manuell oder automatisiert aktivieren (siehe google-services resource) um mit Terraform damit zu interagieren.
-https://registry.terraform.io/providers/hashicorp/google/6.32.0/docs/guides/google_project_service
+- **`count`**: Erlaubt es, eine Ressource mehrfach anzulegen. Beispiel: `count = 3` erstellt 3 identische Instanzen, erreichbar über `resource.name[0]`, `resource.name[1]`, …[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/count#:~:text=If%20a%20resource%20or%20module,will%20create%20that%20many%20instances).
+- **`for_each`**: Geht noch weiter und erlaubt Iterationen über Karten (maps) oder Mengen (sets). Bei `for_each` definiert man z.B. `for_each = {a="eastus", b="westus2"}`, dann wird für jedes Schlüssel-Wert-Paar eine eigene Instanz erstellt. Man kann innerhalb der Resource-Blockes mit `each.key` und `each.value` auf Schlüssel bzw. Wert zugreifen[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/for_each#:~:text=The%20%60for_each%60%20meta,when%20the%20configuration%20is%20applied). Beispiel:
 
 ```
-resource "google_project_service" "iam" {
+resource "azurerm_resource_group" "rg" {
+  for_each = tomap({
+    prod  = "West Europe"
+    stage = "North Europe"
+  })
+  name     = each.key
+  location = each.value
+}
+```
+
+`for_each` ist seit Terraform 0.12.6 verfügbar und flexibler als `count`, da man damit z.B. ungerade Mengen konfigurieren kann[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/for_each#:~:text=If%20a%20resource%20or%20module,of%20that%20map%20or%20set). Man kann **nicht** gleichzeitig `count` und `for_each` im gleichen Block verwenden[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/count#:~:text=By%20default%2C%20a%20resource%20block,and%20for_each).
+
+- **Dynamische Blöcke** (`dynamic { ... }`): Ermöglichen es, komplexe Unterblöcke (z.B. `ingress` in einer Firewallregel) basierend auf einer Liste automatisch zu erzeugen. Das geht ins Detail und kann je nach Bedarf hinzugefügt werden.
+
+Kurz gesagt: Verwenden Sie **`count`** oder **`for_each`** für sich wiederholende Strukturen (Pool von VMs o.Ä.) und trennen Sie Variablen/Listen von der eigentlichen Ressourcendefinition.
+
+## depends_on
+
+Standardmäßig ermittelt Terraform Abhängigkeiten automatisch, wenn eine Ressource auf Attributen einer anderen referenziert. In seltenen Fällen gibt es jedoch „verborgene“ Abhängigkeiten, die nicht automatisch erkannt werden. Hier kommt `depends_on` ins Spiel: Damit können Sie explizit angeben, dass Ressource A erst nach Ressource B erstellt werden soll.
+
+```hcl
+resource "aws_instance" "web" {
+  # ...
+  depends_on = [aws_vpc.network]
+}
+```
+
+Terraform beschreibt `depends_on` als _“zu verwendendes Meta-Argument, um versteckte Abhängigkeiten zu handhaben, die Terraform nicht automatisch erkennt”_[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/depends_on#:~:text=Use%20the%20%60depends_on%60%20meta,You%20only%20need%20to). Allerdings sollte man `depends_on` nur als letzte Möglichkeit nutzen, da es den Plan vorsichtiger macht und oft nicht nötig ist[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/depends_on#:~:text=Use%20the%20%60depends_on%60%20meta,You%20only%20need%20to). Wenn möglich, erzeugen Sie Abhängigkeiten lieber durch Referenzen (z.B. indem Sie Attributwerte aus anderen Ressourcen verwenden), damit Terraform selbst planen kann.
+
+## `null_resource` und `terraform_data`
+
+Ein **`null_resource`** ist ein Spezialfall: Er ist wie eine normale Ressource, die aber nichts tatsächlich erstellt. Man nutzt ihn beispielsweise, um **Lokale Skripte** oder Provisioner auszuführen, die nicht mit einer echten Ressource verknüpft sind. Terraform selbst beschreibt das `null_resource` als Platzhalter, _“der keine weiteren Aktionen ausführt”_, aber Lebenszyklus-Metadaten besitzt[spacelift.io](https://spacelift.io/blog/terraform-null-resource#:~:text=The%20null_resource%20in%20Terraform%20is,any%20further%20actions%20beyond%20initialization). Dabei kann man z.B. `null_resource` mit einem `local-exec`-Provisioner nutzen, um beliebige Shell-Befehle nach einem `apply` auszuführen.
+
+Seit Terraform 1.4 gibt es außerdem das **`terraform_data`**-Resource-Typ, der als moderne Alternative zum `null_resource` dient. Der Unterschied: `terraform_data` ist nativ in Terraform eingebaut und erfordert kein zusätzliches Provider-Plugin. Wie ein Blog schreibt: _“terraform_data dient als Alternative zu null_resource und bietet ähnliche Funktionalität. Im Gegensatz zu null_resource ist terraform_data Teil von Terraform selbst”_[spacelift.io](https://spacelift.io/blog/terraform-null-resource#:~:text=terraform_data%20serves%20as%20an%20alternative,need%20for%20additional%20provider%20downloads). Man kann also statt `null_resource` heute oft `terraform_data` verwenden, zum Beispiel mit einem `lifecycle`-Block und `replace_triggered_by`, um auf Änderungen zu reagieren.
+
+Zusammengefasst: **`null_resource`** nutzt man, um Skripte oder Aktionen zu triggern, die nicht in den eigentlichen Terraform-Ressourcen abgebildet sind[spacelift.io](https://spacelift.io/blog/terraform-null-resource#:~:text=The%20null_resource%20in%20Terraform%20is,any%20further%20actions%20beyond%20initialization). Für neuere Terraform-Versionen ist **`terraform_data`** die modernere Lösung[spacelift.io](https://spacelift.io/blog/terraform-null-resource#:~:text=terraform_data%20serves%20as%20an%20alternative,need%20for%20additional%20provider%20downloads).
+
+## Skripte ausführen – nach Ressourcen-Erstellung und nach Destroy
+
+Wenn Sie nach dem Erstellen oder Löschen von Ressourcen Befehle ausführen müssen (z.B. Konfigurationsskripte), nutzt man in Terraform sogenannte **Provisioner**. Die beiden wichtigsten sind:
+
+- **`local-exec`**: Führt einen Befehl lokal auf der Maschine aus, auf der `terraform` läuft, nachdem die Ressource erstellt ist[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec#:~:text=The%20%60local,run%20commands%20on%20the%20resource). Beispiel:
+
+```hcl
+resource "aws_instance" "web" {
+# ...
+provisioner "local-exec" {
+command = "echo ${self.private_ip} >> ips.txt"
+}
+}
+```
+
+- **`remote-exec`**: Führt Befehle auf der entfernten Ressource aus (z.B. per SSH auf einer VM, **nur sinnvoll wenn Verbindung möglich**).
+
+Wichtig: Terraform selbst warnt, dass man Provisioner „**nur als letzte Möglichkeit**“ einsetzen sollte[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec#:~:text=Important%3A%20Use%20provisioners%20as%20a,Declaring%20Provisioners%20for%20more%20details). Sie werden nicht als Teil des Terraform-Zustandes verwaltet. Insbesondere beim Zerstören von Ressourcen (mit `terraform destroy`) sollte man vorsichtig sein: Aktuell gibt es kein direktes Äquivalent wie `when = destroy` für `local-exec` in älteren Versionen (ab Terraform 1.4 gibt es `on_failure = continue` etc.). Oft ist es besser, Bereinigungsaufgaben manuell oder per externem Skript durchzuführen, statt Terraform mit `destroy`-Provisionern zu überfrachten.
+
+Zusammengefasst: Um nach `apply` oder `destroy` externe Skripte zu nutzen, können `local-exec` oder `remote-exec` helfen. Nutzen Sie sie jedoch sparsam und dokumentieren Sie ihren Einsatz gut[developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec#:~:text=Important%3A%20Use%20provisioners%20as%20a,Declaring%20Provisioners%20for%20more%20details).
+
+## Best Practices – Mehrere Umgebungen
+
+Bei größeren Projekten hat man oft **verschiedene Umgebungen** (z.B. Dev, Stage, Prod). Terraform bietet dafür unterschiedliche Strategien:
+
+- **Workspaces**: Ermöglichen es, mit demselben Code mehrere isolierte Umgebungen zu erzeugen. Jedes Workspace hat eigenen State. Workspaces eignen sich, um identische Umgebungen zu verwalten, sind aber keine vollständige Lösung für alle Anwendungsfälle (viele empfehlen, Produktions-Infrastruktur getrennt zu konfigurieren)[spacelift.io](https://spacelift.io/blog/terraform-environments#:~:text=Terraform%20offers%20a%20workspaces%20feature,how%20we%20can%20leverage%20it). Der Vorteil: Sie können dieselbe Konfiguration mehrfach „kopieren“ lassen (z.B. `terraform workspace new dev`, `terraform workspace new prod`), ohne neuen Code zu schreiben[spacelift.io](https://spacelift.io/blog/terraform-environments#:~:text=Terraform%20offers%20a%20workspaces%20feature,how%20we%20can%20leverage%20it).
+- **Separater Code- oder State pro Umgebung**: Viele Teams lösen verschiedene Umgebungen, indem sie Pro-Branch-Strategien oder getrennte Verzeichnisse/Repos verwenden. Zum Beispiel könnte man pro Umgebung eine eigene Backend-Konfiguration (verschiedener GCS-Bucket oder S3-Pfad) und ggf. leicht unterschiedliche Variablen haben. So sind Dev und Prod wirklich isoliert.
+- **Terragrunt oder Tools wie Spacelift**: Diese Hilfswerkzeuge vereinfachen, mehrere Umgebungen zu managen (z.B. durch `terragrunt.hcl` mit unterschiedlichen Parametern)[spacelift.io](https://spacelift.io/blog/terraform-environments#:~:text=Terraform%20offers%20a%20workspaces%20feature,how%20we%20can%20leverage%20it).
+
+Wichtig ist in jedem Fall: **Wiederverwenden Sie möglichst denselben Code** für alle Umgebungen (sonst steigt der Wartungsaufwand). Variieren Sie Umgebungsspezifika nur über Variablen oder über wenige Änderungen.
+
+# Hands-On Beispiele
+
+## Allgemeines Terraform-Beispiel (ohne Cloud)
+
+Im folgenden Beispiel erstellen wir mit Terraform ein **lokales Textfile**. Dazu nutzen wir den `local`-Provider und das `local_file`-Resource (kein Cloud-Anbieter nötig):
+
+```hcl
+terraform {
+  required_providers {
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
+  }
+}
+provider "local" {}
+
+resource "local_file" "example" {
+  content  = "Hallo Terraform!"
+  filename = "${path.module}/hallo.txt"
+}
+```
+
+1. Speichern Sie das obige Beispiel z.B. in `main.tf`.
+2. Führen Sie `terraform init` aus dies lädt den Local-Provider.
+3. Führen Sie `terraform plan` aus, um zu sehen, welche Datei angelegt wird.
+4. Führen Sie `terraform apply` aus (bestätigen Sie mit `yes`).
+
+Terraform erzeugt daraufhin lokal die Datei `hallo.txt` mit dem Inhalt _"Hallo Terraform!"_. Dies zeigt, dass Terraform selbständig Dateien generieren kann, auch ohne Cloud-Zugriff.
+Experimentieren Sie: Ändern Sie den `content` und führen Sie erneut `apply` durch. Beachten Sie, dass `hallo.txt` verändert wird. Löschen Sie das File und führen Sie wieder `apply` aus – Terraform wird es neu anlegen.
+
+## GCP-Hand-On: Eigene Ressourcen erstellen
+
+In diesem Beispiel legen die Teilnehmer in GCP selbst per Terraform Ressourcen an. Beispielhaft erstellen wir ein **Storage-Bucket** und eine **Compute-Engine-VM**. Die Aktionen sind wie ein kleines Workshop-Übungsprojekt:
+
+```hcl
+provider "google" {
   project = var.project_id
-  service = "iam.googleapis.com"
-  timeouts {
-    create = "20m"
-    update = "20m"
+  region  = var.region
+}
+
+# Beispiel: Ein GCS-Bucket
+resource "google_storage_bucket" "bucket_example" {
+  name     = "mein-terraform-bucket-${random_id.rand.hex}"
+  location = "US"
+}
+
+# Beispiel: Eine Compute Engine VM
+resource "google_compute_instance" "vm_example" {
+  name         = "beispiel-vm"
+  machine_type = "e2-micro"
+  zone         = "us-central1-a"
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-11"
+    }
+  }
+
+  network_interface {
+    network = "default"
+    access_config {}
   }
 }
 ```
 
-Für diesen Workshop zum Beispiel wurden die Services Identity and Access Management (IAM) API u. Cloud Resource Manager API benötigt, die entweder manuell oder automatisiert aktiviert werden können.
+**Aufgabe für die Teilnehmer:**
 
-https://console.cloud.google.com/apis/api/iam.googleapis.com/metrics?project=terraform-learning-460507&inv=1&invt=AbzEYA
+- Ersetzen Sie `var.project_id` und `var.region` durch Ihre GCP-Projekt-ID und Region, oder definieren Sie diese Variablen als Eingabe.
+- Ergänzen Sie unbedingt einen eindeutigen Namen für den Bucket (z.B. mit `${random_id.rand.hex}`, nachdem Sie `resource "random_id" "rand" { byte_length = 4 }` hinzugefügt haben), damit der Name global eindeutig ist.
+- Führen Sie `terraform init`, `terraform plan` und `terraform apply` aus.
 
-https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com/metrics?project=terraform-learning-460507&inv=1&invt=AbzEXw
+Nach dem erfolgreichen `apply` sollte in Ihrem GCP-Projekt ein neuer Bucket und eine VM existieren. Sie können das Ergebnis in der Google Cloud Console prüfen. Dies übt den Umgang mit dem **Google-Provider** und den Ressourcen wie `google_storage_bucket` und `google_compute_instance`. In der Terraform-Registry finden Sie weitere Details und Attribute. Beispielsweise wird im offiziellen Quickstart erklärt, dass ein `google_compute_instance`-Block u.a. `name`, `machine_type`, `zone`, Boot-Disk und Netzwerk-Interface enthält[cloud.google.com](https://cloud.google.com/docs/terraform/create-vm-instance#:~:text=This%20file%20describes%20the%20google_compute_instance,to%20have%20the%20following%20properties).
 
-Alle gcp services, die existieren, können über die cli abgefragt werden (Achtung: es ist eine sehr lange Liste und kann ein wenig dauern, bis alles da ist und die anfänglichen Ergebnisse haben dann schon garnicht mehr Platz im Terminal Cache)
+# GCP – Endlich spezifisches für Google Cloud!
 
-```shell
-gcloud services list --available --project terraform-learning-460507
+Für Google Cloud gibt es den HashiCorp-Provider **`hashicorp/google`**. Er umfasst viele Ressourcen, die zu GCP-Diensten gehören. Einige wichtige Punkte für GCP-Nutzung mit Terraform:
+
+## Wo kann man State-Files ablegen
+
+Standardmäßig speichert Terraform den State in der lokalen Datei `terraform.tfstate`. In Teams empfiehlt sich jedoch ein **Remote-State**. Google empfiehlt, den State in einem **GCS-Bucket** abzulegen. Dort lässt sich mittels Versionierung auch der Verlauf sichern[cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=By%20default%2C%20Terraform%20stores%20state,understanding%20of%20the%20current%20infrastructure). Beispiel für Backend-Konfiguration in `backend.tf`:
+
+```hcl
+terraform {
+  backend "gcs" {
+    bucket = "mein-gcs-tfstate-bucket"
+    prefix = "env/dev"
+  }
+}
 ```
 
+Dies stellt sicher, dass alle gemeinsam den gleichen State verwenden und keine Konflikte auftreten[cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=By%20default%2C%20Terraform%20stores%20state,understanding%20of%20the%20current%20infrastructure). Vergessen Sie nicht, Versionierung auf dem Bucket zu aktivieren, um alte State-Dateien zu behalten.
+
+## Pipelines (CI/CD)
+
+Eine bewährte Praxis ist es, `terraform`-Befehle **nur in automatisierten Pipelines** (z.B. GitHub Actions, GitLab CI, Google Cloud Build) auszuführen. So vermeidet man manuelle Fehler. Eine typische Pipeline könnte etwa so aussehen (siehe Google-Beispiel)[cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=,the%20following%20steps%20are%20executed)[cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=The%20Cloud%20Build%20GitHub%20app,GitHub%20by%20using%20GitHub%20Checks):
+
+- Für den Haupt-Branch (z.B. `dev` oder `prod`):
+  1. `terraform init`
+  2. `terraform plan`
+  3. `terraform apply`
+- Bei Pull-Requests oder Feature-Branches:
+  1. `terraform init` für alle Umgebungen
+  2. `terraform plan` für alle Umgebungen
+
+Änderungen im Repository lösen dann automatisch Builds aus (z.B. mit dem **Cloud Build GitHub-App**, die Commits ins GCP-Projekt verbindet)[cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=The%20Cloud%20Build%20GitHub%20app,GitHub%20by%20using%20GitHub%20Checks). Das hat den Vorteil, dass alle Änderungen nachvollziehbar sind und geprüft werden (z.B. `terraform plan` vor `apply`).
+
+## Versionierung
+
+Verwalten Sie Ihre Terraform-Konfiguration in einem Versionskontrollsystem (z.B. Git). Außerdem sollten Sie in der Datei `terraform { required_version = "..." }` die Terraform-Version einschränken, die Ihre Konfiguration unterstützt. So stellen Sie sicher, dass das Team und CI dieselbe Version nutzen. Als Best Practice empfiehlt HashiCorp, mit `~>` Pins für _Major_ und _Minor_ zu setzen (z.B. `~> 1.3.0` erlaubt alle Patch-Updates von 1.3.x)[developer.hashicorp.com](https://developer.hashicorp.com/terraform/tutorials/configuration-language/versions#:~:text=As%20a%20best%20practice%2C%20consider,use%20a%20new%20version%20of). Auf die gleiche Weise können Sie in `required_providers` die zulässigen Versionen der Provider festlegen. Das verhindert überraschende Updates beim Ausführen von `terraform init`.
+
+## Projekte erstellen
+
+In GCP muss grundsätzlich erst ein **Project** existieren, in dem Ressourcen angelegt werden. Terraform kann sogar neue GCP-Projekte anlegen via `google_project` (Voraussetzung: Ihr Service-Account benötigt Rechte in einer GCP-Organisation). Beispiel:
+
+```hcl
+resource "google_project" "example" {
+  name            = "example-project"
+  project_id      = "example-project-id"
+  org_id          = "1234567890"
+  billing_account = "ABCDEF-123456"
+}
+```
+
+Dieses Beispiel erstellt ein neues GCP-Projekt mit Namen/ID und verknüpft es mit einer Organisation und einem Abrechnungskonto[epma.medium.com](https://epma.medium.com/create-project-in-google-cloud-using-terraform-9af5c224066e#:~:text=resource%20,). In der Regel müssen Sie das nur einmal tun und dann in diesem Projekt weiterarbeiten.
+
+## IAM-Rechteverwaltung
+
+Zu den häufigsten Aufgaben gehört das Zuweisen von Rollen (IAM) an Nutzer und Service Accounts. Terraform bietet hierfür Ressourcen wie `google_project_iam_member`, `google_project_iam_binding` oder `google_project_iam_policy`. Beispielsweise gewährt
+
+```
+resource "google_project_iam_member" "viewer" {
+  project = var.project_id
+  role    = "roles/viewer"
+  member  = "user:alice@example.com"
+}
+```
+
+Alice das Leserecht im Projekt. In einem Google-Blog-Post wird `google_project_iam_member` als _“Add permission to a service account”_ beschrieben[cloud.google.com](https://cloud.google.com/blog/topics/developers-practitioners/implementing-iam-access-control-code-hashicorp-terraform#:~:text=Resource%20google_project_iam_member%20,to%20a%20service%20account). Generell gibt es drei Stufen: `google_project_iam_member` (einer Rolle ein Mitglied hinzufügen), `google_project_iam_binding` (setzen eine feste Liste von Mitgliedern für eine Rolle) und `google_project_iam_policy` (kompletter IAM-Policy für das Projekt, überschreibt alle anderen Bindungen). Nutzen Sie für einzelne Rechteänderungen meist `*_member` oder `*_binding`.
+
+## User/Service Accounts erstellen
+
+Sie können mit Terraform auch **Service Accounts** in GCP anlegen:
+
+```hcl
+resource "google_service_account" "sa_example" {
+  account_id   = "mein-service-account"
+  display_name = "Mein Service Account"
+}
+```
+
+Dieser Block erzeugt einen Service Account im angegebenen Projekt. Wie Google schreibt: _“Resource google_service_account – Creates a service account. Account_id gibt dem Service-Account einen Namen.”_[cloud.google.com](https://cloud.google.com/blog/topics/developers-practitioners/implementing-iam-access-control-code-hashicorp-terraform#:~:text=Resource%20google_service_account%20,summary%20of%20the%20service%20account). Mit solchen Accounts automatisieren Sie z.B. Bereitstellungspipelines (das Keyfile können Sie in CI als Secret nutzen).
+
+## Services aktivieren
+
+In GCP müssen viele APIs (Services) **aktiviert** sein, bevor man ihre Ressourcen verwenden kann. Terraform kennt dafür die Ressource `google_project_service`. Beispiel, um die Compute Engine API zu aktivieren:
+
+```hcl
+resource "google_project_service" "compute" {
+  project = var.project_id
+  service = "compute.googleapis.com"
+}
+```
+
+Ähnlich wie im vorherigen Beispiel in der Workshop-Vorbereitung können Sie so _explizit_ notwendige APIs aktivieren. In der Workshop-Dokumentation wurde z.B. die IAM-API (`iam.googleapis.com`) und Cloud Resource Manager API benötigt (siehe [51] Beispiel ab Zeile 61).
+
 ## VMs Erstellen
+
+Werfen wir noch einmal einen Blick auf die Compute Engine VM-Erstellung mit Terraform. Ein Beispiel (siehe Google Quickstart) könnte sein:
+
+```hcl
+resource "google_compute_instance" "vm" {
+  name         = "demo-vm"
+  machine_type = "n1-standard-1"
+  zone         = "us-central1-a"
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-minimal-2210-kinetic-amd64-v20230126"
+    }
+  }
+
+  network_interface {
+    network = "default"
+    access_config {}
+  }
+}
+```
+
+Dieser Block beschreibt eine VM in GCP. Wie die Dokumentation erläutert, werden dabei `name`, `machine_type`, `zone`, `boot_disk` und `network_interface` gesetzt[cloud.google.com](https://cloud.google.com/docs/terraform/create-vm-instance#:~:text=This%20file%20describes%20the%20google_compute_instance,to%20have%20the%20following%20properties). Nach `terraform apply` existiert diese VM in Ihrem GCP-Projekt. Das obige Beispiel erstellt etwa eine kleine Ubuntu-VM im Standard-Netzwerk.
 
 # Abschließende Gedanken
 
 ## Was soll (nicht) über Terraform gemacht werden
 
-## Was wurde nicht so abgedeckt, was ich in den Terraform files gesehen habe
+Terraform ist in erster Linie ein **Infrastructure-as-Code**-Werkzeug. Es ist _nicht_ dafür gedacht, komplexe Serverkonfigurationen oder Anwendungsbereitstellungen selbst zu managen (dafür nutzt man eher Ansible, Chef oder Kubernetes-Operatoren). Vermeiden Sie es beispielsweise, mit Terraform direkt Softwarepakete zu installieren oder Umgebungsvariablen auf VMs zu setzen. Für alle Aufgaben, die **in** der VM oder Ressource passieren, sollten Sie besser Initialisierungsskripte oder Configuration-Management-Tools verwenden.
 
-### Bzgl. Baur
+Aus Sicherheits- und Nachvollziehbarkeitsgründen sollte man auch keine sensiblen Geheimnisse (z.B. Zugangsdaten, Passwörter) unverschlüsselt in Terraform-Variablen oder -State speichern. Nutzen Sie dafür Speziallösungen (z.B. Secrets Manager, Parameter Store oder Vault) und referenzieren Sie diese Werte nur in Terraform.
 
-- Von Baur wurde die Infrastruktur so gebaut, sodass man in die Terraform files ansich so gut wie nie rein muss. Dort wird alles über yaml files abgebildet. Beispiele hierzu können hier gefunden [Yaml Files in Terraform](<Terraform - Yaml Files.md>)
-- Die Ordnerstruktur ist an den Aufbau von GCP angelehnt, um die Übersichtlichkeit zu verbssern.
+Zudem gilt (wie in den Best Practices von Google): Verwenden Sie **eigene Skripte nur wenn nötig**. Terraform warnt selbst, dass durch externe Skripte erstellte Ressourcen nicht von Terraform verwaltet werden können[cloud.google.com](https://cloud.google.com/docs/terraform/best-practices-for-terraform?hl=de#:~:text=,benutzerdefinierte%20Skripts%20%C3%BCber%20Bereitsteller%20aufrufen). Fassen Sie daher möglichst alles in Terraform-Ressourcen zusammen und nutzen `local-exec`/`remote-exec` sparsam.
 
-### Bzgl. BI Projekte
+## Was wurde nicht so abgedeckt, was ich in den Terraform-Files gesehen habe
 
-TODO: Bisher habe ich keine Terraform files bekommen, daher konnte ich mich nicht damit weiter auseinander setzen.
+- **Bzgl. Baur**: Die Infrastruktur bei Baur wurde so aufgebaut, dass man eigentlich kaum direkt in den Terraform-Code eingreifen muss. Stattdessen werden viele Parameter über separate YAML-Dateien gesteuert. Das bedeutet, die echten Werte kommen zur Laufzeit aus diesen YAML-Templatedateien – in den `.tf`-Dateien stehen oft nur Platzhalter. Außerdem ist die Verzeichnisstruktur von Terraform an die GCP-Projektstruktur angelehnt, was die Übersichtlichkeit erhöht. (Beispiele und Details dazu gibt es in den firmenspezifischen Dokumenten **“Terraform – YAML Files”**.)
+- **Bzgl. BI-Projekte**: Bisher lagen mir keine Terraform-Dateien dieser Projekte vor, daher kann ich dazu nur allgemein sagen: Die selben Prinzipien gelten natürlich – möglicherweise nutzt man dort eigene Module oder spezifische Umgebungen.
 
-## Muss ich immer commands wie terraform apply selber ausführe?
+## Muss ich immer Befehle wie `terraform apply` selber ausführen?
 
-Nein ... normalerweise um Fehler zu vermeiden, sollten solche Befehle nur über pipelines ausgeführt werden.
-Zum Beispiel könnte man manuell einen Service Account für die Erstellung der Infrastruktur erstellen und das key file des Accounts kann man in github actions dann als secrets hinterlegen.
+Nein. Idealerweise führt man alle Terraform-Operationen automatisch in einer **Pipeline/CI** durch. In der Praxis bedeutet das: Ein Service-Account (mit passender Berechtigung, z.B. „Terraform Admin“) wird für die Infrastrukturbereitstellung eingesetzt. Den Schlüssel dieses Accounts (JSON) kann man sicher im CI-System (z.B. GitHub Secrets) hinterlegen. Dann werden `terraform init`, `plan`, `apply` dort zentral ausgeführt. So vermeidet man, dass individuelle Entwickler versehentlich Änderungen live ziehen. Alle Änderungen sollten als Merge/Pull Request überprüft werden, bevor sie angewandt werden.
+
+Insgesamt gilt: Terraform soll Infrastruktur-Änderungen wiederholbar und überprüfbar machen. Durch Automatisierung (CI/CD) minimiert man Risiken und sorgt für konsistente Deployments.
+
+**Quellen:** Die obigen Inhalte basieren auf der offiziellen Terraform-Dokumentation und Best Practices
+[Modules developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/modules#:~:text=Modules%20are%20containers%20for%20multiple,kept%20together%20in%20a%20directory)
+[Count developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/count#:~:text=By%20default%2C%20a%20resource%20block,and%20for_each)
+[Depends On developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/meta-arguments/depends_on#:~:text=Use%20the%20%60depends_on%60%20meta,You%20only%20need%20to)
+[null resources spacelift.io](https://spacelift.io/blog/terraform-null-resource#:~:text=The%20null_resource%20in%20Terraform%20is,any%20further%20actions%20beyond%20initialization)
+[terraform data spacelift.io](https://spacelift.io/blog/terraform-null-resource#:~:text=terraform_data%20serves%20as%20an%20alternative,need%20for%20additional%20provider%20downloads)
+[local exec developer.hashicorp.com](https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec#:~:text=The%20%60local,run%20commands%20on%20the%20resource)
+[Workspaces spacelift.io](https://spacelift.io/blog/terraform-environments#:~:text=Terraform%20offers%20a%20workspaces%20feature,how%20we%20can%20leverage%20it)
+[Terraform states in gcp ablegen cloud.google.com](https://cloud.google.com/docs/terraform/resource-management/managing-infrastructure-as-code#:~:text=By%20default%2C%20Terraform%20stores%20state,understanding%20of%20the%20current%20infrastructure)
+[Versions developer.hashicorp.com](https://developer.hashicorp.com/terraform/tutorials/configuration-language/versions#:~:text=Terraform%20will%20only%20update%20the,using%20a%20newer%20Terraform%20version)
+[Versions developer.hashicorp.com](https://developer.hashicorp.com/terraform/tutorials/configuration-language/versions#:~:text=As%20a%20best%20practice%2C%20consider,use%20a%20new%20version%20of)
+[Creating google cloud projects epma.medium.com](https://epma.medium.com/create-project-in-google-cloud-using-terraform-9af5c224066e#:~:text=resource%20,)
+[GCP IAM cloud.google.com](https://cloud.google.com/blog/topics/developers-practitioners/implementing-iam-access-control-code-hashicorp-terraform#:~:text=Resource%20google_project_iam_member%20,to%20a%20service%20account)
+[GCP IAM ACCESS cloud.google.com](https://cloud.google.com/blog/topics/developers-practitioners/implementing-iam-access-control-code-hashicorp-terraform#:~:text=Resource%20google_service_account%20,summary%20of%20the%20service%20account)
+[GCP Compute Instance cloud.google.com](https://cloud.google.com/docs/terraform/create-vm-instance#:~:text=This%20file%20describes%20the%20google_compute_instance,to%20have%20the%20following%20properties).

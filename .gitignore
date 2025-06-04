@@ -45,6 +45,8 @@ terraform.rc
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 
+gcp/administrative/keys/*
+
 # Local History for Visual Studio Code
 .history/
 

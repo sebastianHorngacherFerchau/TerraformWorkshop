@@ -23,7 +23,7 @@ resource "google_project_service" "iam" {
     create = "20m"
     update = "20m"
   }
-  disable_on_destroy = false
+  disable_on_destroy         = false
   disable_dependent_services = false
 }
 
@@ -37,7 +37,7 @@ resource "google_project_service" "cloud_resource_manager" {
     update = "20m"
   }
 
-  disable_on_destroy = false
+  disable_on_destroy         = false
   disable_dependent_services = false
 }
 
