@@ -34,3 +34,24 @@ export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/service-account-file
 ```
 
 NOTE: The service accounts will be deleted after the workshop!
+
+# Exercise:
+
+1. Create resource `google_storage_bucket`
+2. create variables
+   1. project = "terraform-learning-460507"
+   2. region = "us-east1"
+   3. a uniqe bucket name (not only test, add some context so it can be identified)
+3. create `.tfvars` file for the variables
+4. create a bucket resource `google_storage_bucket_object` where a file is stored inside the bucket
+
+Additional:
+
+1. create 2 workspaces where each workspace creates different buckets (like DEV and PROD)
+2. look through the documentation if you want to add something else with storage/buckets, feel free to test what ever you want
+3. see the folder learn-terraform-local-files to also create a local file where some informations are stored, about the bucket (https://registry.terraform.io/providers/hashicorp/google/latest/docs)
+
+GCP documenation resources for the exercise:
+
+https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket
+https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket_object
